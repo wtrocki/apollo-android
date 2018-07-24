@@ -216,6 +216,9 @@ public final class RealApolloCall<T> implements ApolloQueryCall<T>, ApolloMutati
     return new ApolloInterceptor.CallBack() {
       @Override public void onResponse(@NotNull final ApolloInterceptor.InterceptorResponse response) {
         Optional<Callback<T>> callback = responseCallback();
+        if (queryReFetcher.isPresent()) {
+          queryReFetcher.get().refetch();
+        }
         if (!callback.isPresent()) {
           logger.d("onResponse for operation: %s. No callback present.", operation().name().name());
           return;
@@ -243,9 +246,6 @@ public final class RealApolloCall<T> implements ApolloQueryCall<T>, ApolloMutati
 
       @Override public void onCompleted() {
         Optional<Callback<T>> callback = terminate();
-        if (queryReFetcher.isPresent()) {
-          queryReFetcher.get().refetch();
-        }
         if (!callback.isPresent()) {
           logger.d("onCompleted for operation: %s. No callback present.", operation().name().name());
           return;
@@ -352,13 +352,16 @@ public final class RealApolloCall<T> implements ApolloQueryCall<T>, ApolloMutati
   }
 
   private ApolloInterceptorChain prepareInterceptorChain(Operation operation) {
+    boolean isQuery = operation instanceof Query;
     List<ApolloInterceptor> interceptors = new ArrayList<>();
-    HttpCachePolicy.Policy httpCachePolicy = operation instanceof Query ? this.httpCachePolicy : null;
+    HttpCachePolicy.Policy httpCachePolicy = isQuery ? this.httpCachePolicy : null;
     ResponseFieldMapper responseFieldMapper = responseFieldMapperFactory.create(operation);
 
     interceptors.addAll(applicationInterceptors);
     interceptors.add(responseFetcher.provideInterceptor(logger));
-    interceptors.add(new ApolloCacheInterceptor(apolloStore, responseFieldMapper, dispatcher, logger));
+    if(isQuery){
+       interceptors.add(new ApolloCacheInterceptor(apolloStore, responseFieldMapper, dispatcher, logger));
+    }
     interceptors.add(new ApolloParseInterceptor(httpCache, apolloStore.networkResponseNormalizer(), responseFieldMapper,
         scalarTypeAdapters, logger));
     interceptors.add(new ApolloServerInterceptor(serverUrl, httpCallFactory, httpCachePolicy, false,
