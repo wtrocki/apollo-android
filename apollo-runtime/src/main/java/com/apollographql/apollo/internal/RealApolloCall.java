@@ -352,13 +352,16 @@ public final class RealApolloCall<T> implements ApolloQueryCall<T>, ApolloMutati
   }
 
   private ApolloInterceptorChain prepareInterceptorChain(Operation operation) {
+    boolean isQuery = operation instanceof Query;
     List<ApolloInterceptor> interceptors = new ArrayList<>();
-    HttpCachePolicy.Policy httpCachePolicy = operation instanceof Query ? this.httpCachePolicy : null;
+    HttpCachePolicy.Policy httpCachePolicy = isQuery ? this.httpCachePolicy : null;
     ResponseFieldMapper responseFieldMapper = responseFieldMapperFactory.create(operation);
 
     interceptors.addAll(applicationInterceptors);
     interceptors.add(responseFetcher.provideInterceptor(logger));
-    interceptors.add(new ApolloCacheInterceptor(apolloStore, responseFieldMapper, dispatcher, logger));
+    if(isQuery){
+       interceptors.add(new ApolloCacheInterceptor(apolloStore, responseFieldMapper, dispatcher, logger));
+    }
     interceptors.add(new ApolloParseInterceptor(httpCache, apolloStore.networkResponseNormalizer(), responseFieldMapper,
         scalarTypeAdapters, logger));
     interceptors.add(new ApolloServerInterceptor(serverUrl, httpCallFactory, httpCachePolicy, false,
