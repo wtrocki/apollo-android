@@ -215,6 +215,9 @@ public final class RealApolloCall<T> implements ApolloQueryCall<T>, ApolloMutati
   private ApolloInterceptor.CallBack interceptorCallbackProxy() {
     return new ApolloInterceptor.CallBack() {
       @Override public void onResponse(@NotNull final ApolloInterceptor.InterceptorResponse response) {
+        if (queryReFetcher.isPresent()) {
+          queryReFetcher.get().refetch();
+        }
         Optional<Callback<T>> callback = responseCallback();
         if (!callback.isPresent()) {
           logger.d("onResponse for operation: %s. No callback present.", operation().name().name());
@@ -243,9 +246,6 @@ public final class RealApolloCall<T> implements ApolloQueryCall<T>, ApolloMutati
 
       @Override public void onCompleted() {
         Optional<Callback<T>> callback = terminate();
-        if (queryReFetcher.isPresent()) {
-          queryReFetcher.get().refetch();
-        }
         if (!callback.isPresent()) {
           logger.d("onCompleted for operation: %s. No callback present.", operation().name().name());
           return;
